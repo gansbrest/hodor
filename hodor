@@ -1,0 +1,287 @@
+#!/usr/bin/env ruby
+
+require 'rbconfig'
+require 'yaml'
+
+opts = ARGV
+op = opts[0]
+
+# Remove op from args list
+opts.shift
+
+class Hodor
+
+  def initialize(opts, op)
+    @os = get_os()
+    @op = op
+    @opts = opts
+    @dir_path = Dir.pwd
+    @dir_name = File.basename(Dir.pwd)
+    @uid = `id -u $USER`.to_i
+    @containers = []
+    @tasks = []
+
+    # For non-linux envs
+    @exposed_ports = []
+
+    process_project_config
+
+    @docker_prefix = "sudo " 
+    if @os != :linux
+      @docker_prefix = ""
+      non_linux_init
+    end
+
+  end
+
+  def process_project_config
+    if !File.exist? File.join(@dir_path, '.hodorfile')
+      abort(".hodorfile was not found in your project, please create it and try again")
+    end
+
+    conf = YAML.load_file('.hodorfile')
+    @containers = conf['containers']
+    @tasks = conf['tasks']
+  end
+
+  def non_linux_init
+    # Check if boot2dockr is started
+    # if not display error
+    status = `boot2docker status 2>&1`.strip!
+    if status != "running"
+      abort("Seems like boot2docker was not started, try to run 'boot2docker init' and then 'boot2docker up'")
+    end
+
+    if ENV['DOCKER_HOST'].nil?
+      abort("You need to run 'export DOCKER_HOST=tcp://$(boot2docker ip 2>/dev/null):2375' so we know where your docker host is");
+    end
+
+    @docker_host_ip = `boot2docker ip 2>/dev/null`
+
+    # Prepare container
+    fileshare_running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" fileshare 2>&1`.strip!
+
+    status = $?.exitstatus
+    if status != 0 || fileshare_running == '<no value>' || fileshare_running == "false"
+
+      # Kill leftover containers
+      if fileshare_running == "false"
+        `#{@docker_prefix} docker rm -f fileshare 2>&1`
+      end
+
+      # Copy ssh info to allow ssh forwarding
+      `find ~/.ssh -maxdepth 1 -type f -not \\( -name *authorized_keys* -o -name *config* \\) -exec scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker {} docker@#{@docker_host_ip}:~/.ssh \\\; 2>&1 `
+
+      # Store ssh key in ssh-agent on VM
+      # @TODO - get key name from user input
+      # and capture key pass in more secured way
+      system("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} '[ -e /tmp/docker_socket ] || ssh-agent -a /tmp/docker_socket && SSH_AUTH_SOCK=/tmp/docker_socket && ssh-add'")
+      if $?.exitstatus != 0
+        abort("Your ssh key was not loaded correctly, try one more time.")
+      end
+
+      # Easy (ugly?) way to hide pass from prying eyes
+      system "clear"
+
+    end
+  end
+
+  def get_os
+    @os ||= (
+      host_os = RbConfig::CONFIG['host_os']
+      case host_os
+      when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
+        :windows
+      when /darwin|mac os/
+        :macosx
+      when /linux/
+        :linux
+      when /solaris|bsd/
+        :unix
+      else
+        raise Error::WebDriverError, "unknown os: #{host_os.inspect}"
+      end
+    )
+  end
+
+  def run
+
+    cmd = get_task_prop("cmd")
+    sync_to = get_task_prop("sync_project_to")
+    container_name = get_task_prop("container")
+
+    pre_launch_ops(sync_to)
+    launch_container(cmd, sync_to, container_name)
+    post_launch_ops(sync_to)
+
+  end
+
+  def get_task_prop(prop)
+    begin
+      return @tasks[@op].fetch(prop)
+    rescue NoMethodError, KeyError
+      abort("Either your task or #{prop} property not found in the config")
+    end
+  end
+
+  def pre_launch_ops(sync_to)
+      
+    if @os == :macosx
+      fileshare_running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" fileshare 2>&1`.strip!
+
+      status = $?.exitstatus
+      if status != 0 || fileshare_running == '<no value>' || fileshare_running == "false"
+        # Special tricks for sharing volumes with docker host
+        # Mac only
+        share_volumes_opts = []
+        if sync_to
+            share_volumes_opts << "-v /data/#{@dir_path}:#{sync_to}"
+        end
+
+        # Initialize unison container
+        system("#{@docker_prefix} docker run #{share_volumes_opts.join(" ")} -p 45678:45678 -d --name fileshare gansbrest/fs-base")
+      end
+
+      unison_sync(sync_to)
+
+      # Run fswatch and unison on the background
+      pipe_cmd_in, pipe_cmd_out = IO.pipe
+      @fswatch_pid = Process.spawn("fswatch -o #{@dir_path}", :out => pipe_cmd_out)
+      Process.spawn("xargs -n1 -I{} unison -silent -ignore 'Name {.git,*.swp}' -batch -confirmbigdel=false -ui text -sshargs '-i ~/.ssh/id_boot2docker' #{@dir_path}  socket://#{@docker_host_ip}:45678/#{sync_to}", :in => pipe_cmd_in, :out => "/dev/null")
+
+      Process.detach @fswatch_pid
+
+    end
+  end
+
+  def unison_sync(sync_folder)
+
+    # Copying files to the VM
+    puts "Synchronize #{@dir_path} with VM.."
+    `unison -ignore "Name {.git,*.swp}" -batch -confirmbigdel=false -ui text -sshargs '-i ~/.ssh/id_boot2docker' #{@dir_path} socket://#{@docker_host_ip}:45678/#{sync_folder} 2>&1`
+    `ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} "sudo chown -R docker /data/#{@dir_path}" 2>&1`
+      
+  end
+
+  def launch_container(cmd, sync_to, container_name)
+    begin
+      container_data = @containers.fetch(container_name)
+
+      docker_opts = []
+      
+      docker_opts << "run"
+
+      # General stuff to make sure ssh forwarding works inside of the container
+      # so you don't need to retype your private key password / load it every time
+      if @os != :linux
+        docker_opts << "--volumes-from fileshare"
+        docker_opts << "-v /tmp/docker_socket:/tmp/docker_socket"
+        docker_opts << "-e SSH_AUTH_SOCK=/tmp/docker_socket"
+      else
+        docker_opts << "-e SSH_AUTH_SOCK=$(echo $SSH_AUTH_SOCK)"
+        docker_opts << "-v $(dirname $SSH_AUTH_SOCK):$(dirname $SSH_AUTH_SOCK)"
+      end
+
+      # Launch container deps first if any
+      if container_data.include? "links"
+        container_data["links"].each do |linked_container, link_alias|
+          launch_container(container_data["cmd"], nil, linked_container)
+          docker_opts << "--link #{linked_container}:#{link_alias}"
+        end
+      end
+
+      docker_opts << "--name #{container_name}"
+
+      if container_data["ports"]
+        if container_data["ports"].kind_of?(Array) 
+          container_data["ports"].each do |ports_str|
+            docker_opts << "-p #{ports_str}"
+            port_parts = ports_str.split(":")
+
+            puts "#### #{container_name.upcase} IS EXPOSED UNDER 127.0.0.1:#{port_parts[0]} ADDRESS ####"
+            if @os == :macosx
+              # Store ports, so we can later get rid of them
+              @exposed_ports << port_parts[0]
+
+              # Expose ports
+              `VBoxManage controlvm boot2docker-vm natpf1 "tcp-port#{port_parts[0]},tcp,,#{port_parts[0]},,#{port_parts[0]}"`
+              `VBoxManage controlvm boot2docker-vm natpf1 "udp-port#{port_parts[0]},udp,,#{port_parts[0]},,#{port_parts[0]}"`
+            end
+          end
+        else
+            docker_opts << "#{container_data["ports"]}"
+        end
+      end
+
+      if container_data['workdir']
+        docker_opts << "-w #{container_data['workdir']}"
+      end
+
+      if container_data['background']
+        docker_opts << "-d"
+      else
+        docker_opts << "-it"
+      end
+
+      if sync_to
+        docker_opts << "-v #{@dir_path}:#{sync_to}"
+      end
+
+      puts "Launching #{container_name} container"
+      # Check if we should keep container around
+      if container_data['onetime']
+        # Make sure we remove old containers if those are stuck
+        `#{@docker_prefix} docker rm -f #{container_name} 2>&1`
+        docker_opts << "--rm"
+      else
+        running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" #{container_name} 2>&1`.strip!
+
+        status = $?.exitstatus
+        # Container exist and stopped - restart it 
+        if running == "false" && status == 0
+          docker_opts.clear
+          docker_opts << "start"
+          docker_opts << container_name
+        elsif running == "true"
+          # Do nothing, already running
+          docker_opts.clear
+        end
+      end
+
+      if !container_data['background'] && cmd
+        cmd = "sh -c '[ -d ~/.ssh ] || mkdir ~/.ssh && echo \"Host github.com\nStrictHostKeyChecking no\n\" >> ~/.ssh/config && #{cmd} #{@opts.join(" ")} '"
+      end
+
+      # If any options present at this point run docker container
+      if docker_opts.any?
+        docker_exec_str = "#{@docker_prefix} docker #{docker_opts.join(" ")} #{container_data.fetch("image")} #{cmd}"
+        system(docker_exec_str)
+      end
+      
+    rescue NoMethodError, KeyError => e
+      abort("Problem with #{container_name} container config definition. #{e.message}")
+    end
+  end
+
+  def post_launch_ops(sync_to)
+    if @os == :macosx
+      unison_sync(sync_to)
+
+      # Cleanup exposed ports
+      if @exposed_ports.any?
+        @exposed_ports.each do |port_num|
+          `VBoxManage controlvm boot2docker-vm natpf1 delete tcp-port#{port_num}`
+          `VBoxManage controlvm boot2docker-vm natpf1 delete udp-port#{port_num}`
+        end
+      end
+
+      if @fswatch_pid > 0
+        Process.kill("SIGTERM", @fswatch_pid)
+      end
+    end
+  end
+
+end
+
+hodor = Hodor.new(opts, op)
+hodor.run
