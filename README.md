@@ -16,6 +16,7 @@ Hodor Hodor Hodor
 
 requirements
 =====
+* ruby >= 1.9.3
 * docker / boot2docker >= v1.1.2
 * unison >= 2.40.102 ( for two-way sync on Macs, not required for Linux ) [Get it here](https://code.google.com/p/rudix-mountainlion/downloads/detail?name=unison-2.40.102-0.pkg)
 * fswatch ( for automatic volumes sync on project file change on Macs, not required for Linux ) `brew install fswatch`
