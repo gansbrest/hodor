@@ -19,7 +19,7 @@ requirements
 * ruby >= 1.9.3
 * docker / boot2docker >= v1.1.2
 * unison >= 2.40.102 ( for two-way sync on Macs, not required for Linux ) [Get it here](https://code.google.com/p/rudix-mountainlion/downloads/detail?name=unison-2.40.102-0.pkg)
-* fswatch ( for automatic volumes sync on project file change on Macs, not required for Linux ) `brew install fswatch`
+* fswatch >= 1.4.3.1 ( for automatic volumes sync on project file change on Macs, not required for Linux ) `brew install fswatch`. Make sure you fswatch version has -o ( --one-per-batch option ). If it's missing you need newer version.
 
 how to use
 =====
