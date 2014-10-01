@@ -75,7 +75,7 @@ class Hodor
       # Store ssh key in ssh-agent on VM
       # @TODO - get key name from user input
       # and capture key pass in more secured way
-      system("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} '[ -e /tmp/docker_socket ] || ssh-agent -a /tmp/docker_socket && SSH_AUTH_SOCK=/tmp/docker_socket && ssh-add'")
+      system("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} 'rm -f /tmp/docker_socket && eval `ssh-agent -a /tmp/docker_socket` && ssh-add'")
       if $?.exitstatus != 0
         abort("Your ssh key was not loaded correctly, try one more time.")
       end
@@ -242,6 +242,7 @@ class Hodor
           docker_opts.clear
           docker_opts << "start"
           docker_opts << container_name
+          return system("#{@docker_prefix} docker #{docker_opts.join(" ")}")
         elsif running == "true"
           # Do nothing, already running
           docker_opts.clear
