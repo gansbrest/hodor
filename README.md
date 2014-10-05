@@ -3,7 +3,7 @@ hodor
 
 Small utility to streamline dev process with Docker and Boot2Docker VM ( Mac )
 
-Blog post with more info here [http://distinctplace.com/infrastructure/2014/09/24/docker-vm-shortcomings-and-how-hodor-can-help/](http://distinctplace.com/infrastructure/2014/09/24/docker-vm-shortcomings-and-how-hodor-can-help/)
+Blog post with more info [http://distinctplace.com/infrastructure/2014/09/24/docker-vm-shortcomings-and-how-hodor-can-help/](http://distinctplace.com/infrastructure/2014/09/24/docker-vm-shortcomings-and-how-hodor-can-help/)
 
 features
 =====
