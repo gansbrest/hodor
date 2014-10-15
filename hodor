@@ -134,6 +134,20 @@ class Hodor
         # Special tricks for sharing volumes with docker host
         # Mac only
         share_volumes_opts = []
+
+        ## Volumes support
+        @containers.each do |container_data|
+          name = container_data.first
+          unless @containers[name]['volumes'].nil?
+            @containers[name]['volumes'].each do |src_vol, dst_vol|
+              if src_vol.include? "__PROJECT__"
+                src_vol = src_vol.sub("__PROJECT__", "/data/#{@dir_path}")
+                share_volumes_opts << "-v #{src_vol}:#{dst_vol}"
+              end
+            end
+          end
+        end
+
         if sync_to
             share_volumes_opts << "-v /data/#{@dir_path}:#{sync_to}"
         end
@@ -221,6 +235,18 @@ class Hodor
         docker_opts << "-d"
       else
         docker_opts << "-it"
+      end
+
+      ## All volumes are only working withing current project dir
+      # because .hodorfile is meant to be commited to the repo
+      # and evey dev can have diff folders structure
+      if container_data.include? "volumes"
+        container_data["volumes"].each do |src_vol, dst_vol|
+          if src_vol.include? "__PROJECT__"
+            src_vol = src_vol.sub("__PROJECT__", @dir_path)
+            docker_opts << "-v #{src_vol}:#{dst_vol}"
+          end
+        end
       end
 
       if sync_to
