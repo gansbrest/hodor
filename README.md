@@ -37,6 +37,8 @@ containers:
     image: gansbrest/redis
     ports: -P
     onetime: false
+    volumes:
+      __PROJECT__/conf: /data/conf
   jetpack:
     background: false
     image: gansbrest/fc_jetpack
