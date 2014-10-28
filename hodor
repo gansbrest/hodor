@@ -76,14 +76,11 @@ class Hodor
       # @TODO - get key name from user input
       # and capture key pass in more secured way
       if File.exists? (File.join(File.expand_path('~'), ".ssh/id_rsa"))
-        system("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} 'rm -f /tmp/docker_socket && eval `ssh-agent -a /tmp/docker_socket` && ssh-add'")
+        system("ssh -t -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} 'rm -f /tmp/docker_socket && eval `ssh-agent -a /tmp/docker_socket` && ssh-add'")
         if $?.exitstatus != 0
           abort("Your ssh key was not loaded correctly, try one more time.")
         end
       end
-
-      # Easy (ugly?) way to hide pass from prying eyes
-      system "clear"
 
     end
   end
