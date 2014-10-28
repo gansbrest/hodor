@@ -82,6 +82,9 @@ class Hodor
         end
       end
 
+      # Clean screen from previous stuff
+      system "clear"
+
     end
   end
 
