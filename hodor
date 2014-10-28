@@ -70,7 +70,7 @@ class Hodor
       end
 
       # Copy ssh info to allow ssh forwarding
-      `find ~/.ssh -maxdepth 1 -type f -not \\( -name *authorized_keys* -o -name *config* \\) -exec scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker {} docker@#{@docker_host_ip}:~/.ssh \\\; 2>&1 `
+      `find ~/.ssh -maxdepth 1 -type f ! -name 'authorized_keys' ! -name 'config' -exec scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker {} docker@#{@docker_host_ip}:~/.ssh \\\; 2>&1 `
 
       # Store ssh key in ssh-agent on VM
       # @TODO - get key name from user input
