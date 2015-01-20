@@ -26,7 +26,7 @@ class Hodor
 
     process_project_config
 
-    @docker_prefix = "sudo " 
+    @docker_prefix = "sudo "
     if @os != :linux
       @docker_prefix = ""
       non_linux_init
@@ -56,7 +56,7 @@ class Hodor
       abort("You need to run 'export DOCKER_HOST=tcp://$(boot2docker ip 2>/dev/null):2375' so we know where your docker host is");
     end
 
-    @docker_host_ip = `boot2docker ip 2>/dev/null`
+    @docker_host_ip = `boot2docker ip 2>/dev/null`.chomp
 
     # Prepare container
     fileshare_running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" fileshare 2>&1`.strip!
@@ -209,7 +209,7 @@ class Hodor
       docker_opts << "--name #{container_name}"
 
       if container_data["ports"]
-        if container_data["ports"].kind_of?(Array) 
+        if container_data["ports"].kind_of?(Array)
           container_data["ports"].each do |ports_str|
             docker_opts << "-p #{ports_str}"
             port_parts = ports_str.split(":")
@@ -265,7 +265,7 @@ class Hodor
         running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" #{container_name} 2>&1`.strip!
 
         status = $?.exitstatus
-        # Container exist and stopped - restart it 
+        # Container exist and stopped - restart it
         if running == "false" && status == 0
           docker_opts.clear
           docker_opts << "start"
