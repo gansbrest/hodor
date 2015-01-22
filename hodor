@@ -20,6 +20,7 @@ class Hodor
     @uid = `id -u $USER`.to_i
     @containers = []
     @tasks = []
+    @fileshare_name = "#{@dir_name}_fileshare"
 
     # For non-linux envs
     @exposed_ports = []
@@ -59,14 +60,14 @@ class Hodor
     @docker_host_ip = `boot2docker ip 2>/dev/null`.chomp
 
     # Prepare container
-    fileshare_running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" fileshare 2>&1`.strip!
+    fileshare_running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" #{@fileshare_name} 2>&1`.strip!
 
     status = $?.exitstatus
     if status != 0 || fileshare_running == '<no value>' || fileshare_running == "false"
 
       # Kill leftover containers
       if fileshare_running == "false"
-        `#{@docker_prefix} docker rm -f fileshare 2>&1`
+        `#{@docker_prefix} docker rm -f #{@fileshare_name} 2>&1`
       end
 
       # Copy ssh info to allow ssh forwarding
@@ -105,6 +106,10 @@ class Hodor
       end
     )
   end
+  
+  def fileshare_port
+    `#{@docker_prefix} docker port #{@fileshare_name} 45678 2>&1`.strip!.split(':')[1]
+  end
 
   def run
 
@@ -129,7 +134,7 @@ class Hodor
   def pre_launch_ops(sync_to)
       
     if @os == :macosx
-      fileshare_running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" fileshare 2>&1`.strip!
+      fileshare_running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" #{@fileshare_name} 2>&1`.strip!
 
       status = $?.exitstatus
       if status != 0 || fileshare_running == '<no value>' || fileshare_running == "false"
@@ -155,7 +160,7 @@ class Hodor
         end
 
         # Initialize unison container
-        system("#{@docker_prefix} docker run #{share_volumes_opts.join(" ")} -p 45678:45678 -d --name fileshare gansbrest/fs-base")
+        system("#{@docker_prefix} docker run #{share_volumes_opts.join(" ")} -p 45678 -d --name #{@fileshare_name} gansbrest/fs-base")
       end
 
       unison_sync(sync_to)
@@ -163,7 +168,7 @@ class Hodor
       # Run fswatch and unison on the background
       pipe_cmd_in, pipe_cmd_out = IO.pipe
       @fswatch_pid = Process.spawn("fswatch -o #{@dir_path}", :out => pipe_cmd_out)
-      Process.spawn("xargs -n1 -I{} unison -silent -ignore 'Name {.git,*.swp}' -batch -confirmbigdel=false -ui text -sshargs '-i ~/.ssh/id_boot2docker' #{@dir_path}  socket://#{@docker_host_ip}:45678/#{sync_to}", :in => pipe_cmd_in, :out => "/dev/null")
+      Process.spawn("xargs -n1 -I{} unison -silent -ignore 'Name {.git,*.swp}' -batch -confirmbigdel=false -ui text -sshargs '-i ~/.ssh/id_boot2docker' #{@dir_path}  socket://#{@docker_host_ip}:#{fileshare_port}/#{sync_to}", :in => pipe_cmd_in, :out => "/dev/null")
 
       Process.detach @fswatch_pid
 
@@ -171,10 +176,10 @@ class Hodor
   end
 
   def unison_sync(sync_folder)
-
+    
     # Copying files to the VM
     puts "Synchronize #{@dir_path} with VM.."
-    `unison -ignore "Name {.git,*.swp}" -batch -confirmbigdel=false -ui text -sshargs '-i ~/.ssh/id_boot2docker' #{@dir_path} socket://#{@docker_host_ip}:45678/#{sync_folder} 2>&1`
+    `unison -ignore "Name {.git,*.swp}" -batch -confirmbigdel=false -ui text -sshargs '-i ~/.ssh/id_boot2docker' #{@dir_path} socket://#{@docker_host_ip}:#{fileshare_port}/#{sync_folder} 2>&1`
     `ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} "sudo chown -R docker /data/#{@dir_path}" 2>&1`
       
   end
@@ -190,7 +195,7 @@ class Hodor
       # General stuff to make sure ssh forwarding works inside of the container
       # so you don't need to retype your private key password / load it every time
       if @os != :linux
-        docker_opts << "--volumes-from fileshare"
+        docker_opts << "--volumes-from #{@fileshare_name}"
         docker_opts << "-v /tmp/docker_socket:/tmp/docker_socket"
         docker_opts << "-e SSH_AUTH_SOCK=/tmp/docker_socket"
       else
