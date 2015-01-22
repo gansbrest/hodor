@@ -106,6 +106,10 @@ class Hodor
       end
     )
   end
+  
+  def fileshare_port
+    `#{@docker_prefix} docker port #{@fileshare_name} 45678 2>&1`.strip!.split(':')[1]
+  end
 
   def run
 
@@ -158,8 +162,6 @@ class Hodor
         # Initialize unison container
         system("#{@docker_prefix} docker run #{share_volumes_opts.join(" ")} -p 45678 -d --name #{@fileshare_name} gansbrest/fs-base")
       end
-      
-      fileshare_port = `#{@docker_prefix} docker port #{@fileshare_name} 45678 2>&1`.strip!.split(':')[1]
 
       unison_sync(sync_to)
 
@@ -174,8 +176,6 @@ class Hodor
   end
 
   def unison_sync(sync_folder)
-
-    fileshare_port = `#{@docker_prefix} docker port #{@fileshare_name} 45678 2>&1`.strip!.split(':')[1]
     
     # Copying files to the VM
     puts "Synchronize #{@dir_path} with VM.."
