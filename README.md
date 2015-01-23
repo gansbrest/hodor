@@ -42,10 +42,13 @@ containers:
   jetpack:
     background: false
     image: gansbrest/fc_jetpack
-    ports: 
+    ports:
       - 49000:8880
     links:
       redis: redis
+    environment:
+      AWS_ACCESS_KEY_ID: <%= ENV['AWS_ACCESS_KEY_ID'] %>
+      AWS_SECRET_ACCESS_KEY: <%= ENV['AWS_SECRET_ACCESS_KEY'] %>
     workdir: "/data"
     onetime: true
     

@@ -2,6 +2,7 @@
 
 require 'rbconfig'
 require 'yaml'
+require 'erb'
 
 opts = ARGV
 op = opts[0]
@@ -40,7 +41,7 @@ class Hodor
       abort(".hodorfile was not found in your project, please create it and try again")
     end
 
-    conf = YAML.load_file('.hodorfile')
+    conf = YAML.load(ERB.new(File.read('.hodorfile')).result)
     @containers = conf['containers']
     @tasks = conf['tasks']
   end
@@ -258,6 +259,12 @@ class Hodor
 
       if sync_to
         docker_opts << "-v #{@dir_path}:#{sync_to}"
+      end
+      
+      if container_data.include? "environment"
+        container_data["environment"].each do |var_name, var_value|
+          docker_opts << "-e #{var_name}='#{var_value}'"
+        end
       end
 
       puts "Launching #{container_name} container"
