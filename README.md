@@ -28,7 +28,7 @@ how to use
 
 First you need to clone this repo, `chmod +x hodor` and copy hodor script to `/usr/local/bin`
 
-In your project create file called `.hodorfile` with following structure ( I'll explain options later, but everything should be pretty obvious from this example file:
+In your project create file called `.hodorfile` (now processed through ERB) with following structure ( I'll explain options later, but everything should be pretty obvious from this example file:
 
 ````
 containers:
