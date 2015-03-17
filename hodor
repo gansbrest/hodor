@@ -245,6 +245,10 @@ class Hodor
         docker_opts << "-it"
       end
 
+      if container_data['net']
+        docker_opts << "--net #{container_data['net']}"
+      end
+
       ## All volumes are only working withing current project dir
       # because .hodorfile is meant to be commited to the repo
       # and evey dev can have diff folders structure
