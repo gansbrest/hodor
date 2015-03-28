@@ -78,7 +78,7 @@ class Hodor
       # @TODO - get key name from user input
       # and capture key pass in more secured way
       if File.exists? (File.join(File.expand_path('~'), ".ssh/id_rsa"))
-        system("ssh -t -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} 'rm -f /tmp/docker_socket && eval `ssh-agent -a /tmp/docker_socket` && ssh-add'")
+        system("ssh -t -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} 'rm -f /tmp/hodor_docker_socket && eval `ssh-agent -a /tmp/hodor_docker_socket` && ssh-add'")
         if $?.exitstatus != 0
           abort("Your ssh key was not loaded correctly, try one more time.")
         end
@@ -197,8 +197,8 @@ class Hodor
       # so you don't need to retype your private key password / load it every time
       if @os != :linux
         docker_opts << "--volumes-from #{@fileshare_name}"
-        docker_opts << "-v /tmp/docker_socket:/tmp/docker_socket"
-        docker_opts << "-e SSH_AUTH_SOCK=/tmp/docker_socket"
+        docker_opts << "-v /tmp/hodor_docker_socket:/tmp/hodor_docker_socket"
+        docker_opts << "-e SSH_AUTH_SOCK=/tmp/hodor_docker_socket"
       else
         docker_opts << "-e SSH_AUTH_SOCK=$(echo $SSH_AUTH_SOCK)"
         docker_opts << "-v $(dirname $SSH_AUTH_SOCK):$(dirname $SSH_AUTH_SOCK)"
