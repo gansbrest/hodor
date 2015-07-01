@@ -44,7 +44,7 @@ containers:
     image: gansbrest/fc_jetpack
     ports:
       - 49000:8880
-    links:
+    links: ( **note:** if you use `net: host`, but still want to start conainers in particular order, you should use **depends** keyword with the list of continers instead )
       redis: redis
     environment:
       AWS_ACCESS_KEY_ID: <%= ENV['AWS_ACCESS_KEY_ID'] %>

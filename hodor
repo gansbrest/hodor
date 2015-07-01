@@ -212,6 +212,13 @@ class Hodor
         end
       end
 
+      # Sometimes we need deps to be started in particular order without links
+      if container_data.include? "depends"
+        container_data["depends"].each do |linked_container|
+          launch_container(container_data["cmd"], nil, linked_container)
+        end
+      end
+
       docker_opts << "--name #{container_name}"
 
       if container_data["ports"]
