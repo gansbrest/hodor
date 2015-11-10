@@ -46,6 +46,7 @@ containers:
       - 49000:8880
     links: ( **note:** if you use `net: host`, but still want to start conainers in particular order, you should use **depends** keyword with the list of continers instead )
       redis: redis
+    env_file: "env.yml"
     environment:
       AWS_ACCESS_KEY_ID: <%= ENV['AWS_ACCESS_KEY_ID'] %>
       AWS_SECRET_ACCESS_KEY: <%= ENV['AWS_SECRET_ACCESS_KEY'] %>
