@@ -279,7 +279,7 @@ class Hodor
       end
 
       if container_data.include? "env_file"
-        environment = YAML.load(File.read(container_data["env_file"]).result)
+        environment = YAML.load(ERB.new(File.read(container_data["env_file"])).result)
         environment.each do |var_name, var_value|
           docker_opts << "-e #{var_name}='#{var_value}'"
         end
