@@ -22,17 +22,21 @@ class Hodor
     @containers = []
     @tasks = []
     @fileshare_name = "#{@dir_name}_fileshare"
+    @hostmanager = "boot2docker"
+    @host = "boot2docker-vm"
+    @ssh_file = "~/.ssh/id_boot2docker"
+
+    case conf['host-manager']
+      when "docker-machine"
+        @hostmanager = "docker-machine"
+        @host = conf['host'] || ENV['DOCKER_MACHINE_NAME'] || 'default'
+        @ssh_file = "~/.docker/machine/machines/#{@host}/id_rsa"
+    end
 
     # For non-linux envs
     @exposed_ports = []
 
     process_project_config
-
-    if @hostmanager == "boot2docker"
-      @ssh_file = "~/.ssh/id_boot2docker"
-    elsif @hostmanager == "docker-machine"
-      @ssh_file = "~/.docker/machine/machines/#{@host}/id_rsa"
-    end
 
     @docker_prefix = "sudo "
     if @os != :linux
@@ -50,16 +54,6 @@ class Hodor
     conf = YAML.load(ERB.new(File.read('.hodorfile')).result)
     @containers = conf['containers']
     @tasks = conf['tasks']
-    @hostmanager = "boot2docker"
-    @host = "boot2docker-vm"
-    @ssh_file = "~/.ssh/id_boot2docker"
-
-    case conf['host-manager']
-      when "docker-machine"
-        @hostmanager = "docker-machine"
-        @host = conf['host'] || ENV['DOCKER_MACHINE_NAME'] || 'default'
-        @ssh_file = "~/.docker/machine/machines/#{@host}/id_rsa"
-    end
   end
 
   def non_linux_init
