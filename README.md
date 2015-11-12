@@ -31,8 +31,8 @@ First you need to clone this repo, `chmod +x hodor` and copy hodor script to `/u
 In your project create file called `.hodorfile` (now processed through ERB) with following structure ( I'll explain options later, but everything should be pretty obvious from this example file:
 
 ````
-host-manager: docker-machine (boot2docker by default)
-host: default (VirtualBox vm name. Defaults: boot2docker-vm for boot2docker, default for docker-machine)
+host-manager: docker-machine (Optional. Default: boot2docker)
+host: default (Optional. VirtualBox vm name. Defaults: boot2docker-vm (boot2docker), default (docker-machine))
 
 containers:
   redis:

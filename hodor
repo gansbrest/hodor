@@ -50,11 +50,15 @@ class Hodor
     conf = YAML.load(ERB.new(File.read('.hodorfile')).result)
     @containers = conf['containers']
     @tasks = conf['tasks']
-    @hostmanager = conf['host-manager'] || "boot2docker"
-    if @hostmanager == "boot2docker"
-      @host = "boot2docker-vm"
-    elsif @hostmanager == "docker-machine"
-      @host = conf['host'] || ENV['DOCKER_MACHINE_NAME'] || 'default'
+    @hostmanager = "boot2docker"
+    @host = "boot2docker-vm"
+    @ssh_file = "~/.ssh/id_boot2docker"
+
+    case conf['host-manager']
+      when "docker-machine"
+        @hostmanager = "docker-machine"
+        @host = conf['host'] || ENV['DOCKER_MACHINE_NAME'] || 'default'
+        @ssh_file = "~/.docker/machine/machines/#{@host}/id_rsa"
     end
   end
 
@@ -67,7 +71,11 @@ class Hodor
       status = `docker-machine status #{@host} 2>&1`.downcase.strip!
     end
     if status != "running"
-      abort("Seems like #{@hostmanager} was not started, try to run '#{@hostmanager} init' and then '#{@hostmanager} up'")
+      if @hostmanager == "boot2docker"
+        abort("Seems like boot2docker was not started, try to run 'boot2docker init' and then 'boot2docker up'")
+      elsif @hostmanager == "docker-machine"
+        abort("Seems like docker-machine was not started, try to run 'docker-machine start @host'")
+      end
     end
 
     if ENV['DOCKER_HOST'].nil?
@@ -102,7 +110,6 @@ class Hodor
       # @TODO - get key name from user input
       # and capture key pass in more secured way
       if File.exists? (File.join(File.expand_path('~'), ".ssh/id_rsa"))
-        system "echo ssh -t -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i #{@ssh_file} docker@#{@docker_host_ip} 'rm -f /tmp/hodor_docker_socket && eval `ssh-agent -a /tmp/hodor_docker_socket` && ssh-add'"
         system("ssh -t -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i #{@ssh_file} docker@#{@docker_host_ip} 'rm -f /tmp/hodor_docker_socket && eval `ssh-agent -a /tmp/hodor_docker_socket` && ssh-add'")
         if $?.exitstatus != 0
           abort("Your ssh key was not loaded correctly, try one more time.")
