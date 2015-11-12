@@ -72,6 +72,7 @@ tasks:
     sync_project_to: /data/slot-fc1
     cmd: "cd /data/slot-fc1 && ./simple_server"
     container: "jetpack"
+  default: run (if no task is given, the run task is executed)
 ````
 
 Run Hodor with one of the tasks you specified while you are in project dir.

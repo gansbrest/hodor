@@ -54,6 +54,9 @@ class Hodor
     conf = YAML.load(ERB.new(File.read('.hodorfile')).result)
     @containers = conf['containers']
     @tasks = conf['tasks']
+    if !@op && @tasks['default']
+      @op = @tasks['default']
+    end
   end
 
   def non_linux_init
