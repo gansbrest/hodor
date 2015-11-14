@@ -22,6 +22,16 @@ class Hodor
     @containers = []
     @tasks = []
     @fileshare_name = "#{@dir_name}_fileshare"
+    @hostmanager = "boot2docker"
+    @host = "boot2docker-vm"
+    @ssh_file = "~/.ssh/id_boot2docker"
+
+    case conf['host-manager']
+      when "docker-machine"
+        @hostmanager = "docker-machine"
+        @host = conf['host'] || ENV['DOCKER_MACHINE_NAME'] || 'default'
+        @ssh_file = "~/.docker/machine/machines/#{@host}/id_rsa"
+    end
 
     # For non-linux envs
     @exposed_ports = []
@@ -50,18 +60,34 @@ class Hodor
   end
 
   def non_linux_init
-    # Check if boot2dockr is started
+    # Check if hostmanager is started
     # if not display error
-    status = `boot2docker status 2>&1`.strip!
+    if @hostmanager == "boot2docker"
+      status = `boot2docker status 2>&1`.strip!
+    elsif @hostmanager == "docker-machine"
+      status = `docker-machine status #{@host} 2>&1`.downcase.strip!
+    end
     if status != "running"
-      abort("Seems like boot2docker was not started, try to run 'boot2docker init' and then 'boot2docker up'")
+      if @hostmanager == "boot2docker"
+        abort("Seems like boot2docker was not started, try to run 'boot2docker init' and then 'boot2docker up'")
+      elsif @hostmanager == "docker-machine"
+        abort("Seems like docker-machine was not started, try to run 'docker-machine start @host'")
+      end
     end
 
     if ENV['DOCKER_HOST'].nil?
-      abort("You need to run 'export DOCKER_HOST=tcp://$(boot2docker ip 2>/dev/null):2375' so we know where your docker host is");
+      if @hostmanager == "boot2docker"
+        abort("You need to run 'export DOCKER_HOST=tcp://$(boot2docker ip 2>/dev/null):2375' so we know where your docker host is");
+      elsif @hostmanager == "docker-machine"
+        abort("You need to run 'export DOCKER_HOST=tcp://$(docker-machine ip #{@host} 2>/dev/null):2375' so we know where your docker host is");
+      end
     end
 
-    @docker_host_ip = `boot2docker ip 2>/dev/null`.chomp
+    if @hostmanager == "boot2docker"
+      @docker_host_ip = `boot2docker ip 2>/dev/null`.chomp
+    elsif @hostmanager == "docker-machine"
+      @docker_host_ip = `docker-machine ip #{@host} 2>/dev/null`.chomp
+    end
 
     # Prepare container
     fileshare_running = `#{@docker_prefix} docker inspect -f "{{ .State.Running }}" #{@fileshare_name} 2>&1`.strip!
@@ -75,13 +101,13 @@ class Hodor
       end
 
       # Copy ssh info to allow ssh forwarding
-      `find ~/.ssh -maxdepth 1 -type f ! -name 'authorized_keys' ! -name 'config' -exec scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker {} docker@#{@docker_host_ip}:~/.ssh \\\; 2>&1 `
+      `find ~/.ssh -maxdepth 1 -type f ! -name 'authorized_keys' ! -name 'config' -exec scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i #{@ssh_file} {} docker@#{@docker_host_ip}:~/.ssh \\\; 2>&1 `
 
       # Store ssh key in ssh-agent on VM
       # @TODO - get key name from user input
       # and capture key pass in more secured way
       if File.exists? (File.join(File.expand_path('~'), ".ssh/id_rsa"))
-        system("ssh -t -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} 'rm -f /tmp/hodor_docker_socket && eval `ssh-agent -a /tmp/hodor_docker_socket` && ssh-add'")
+        system("ssh -t -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i #{@ssh_file} docker@#{@docker_host_ip} 'rm -f /tmp/hodor_docker_socket && eval `ssh-agent -a /tmp/hodor_docker_socket` && ssh-add'")
         if $?.exitstatus != 0
           abort("Your ssh key was not loaded correctly, try one more time.")
         end
@@ -172,7 +198,7 @@ class Hodor
       # Run fswatch and unison on the background
       pipe_cmd_in, pipe_cmd_out = IO.pipe
       @fswatch_pid = Process.spawn("fswatch -o #{@dir_path}", :out => pipe_cmd_out)
-      Process.spawn("xargs -n1 -I{} unison -silent -ignore 'Name {.git,*.swp}' -batch -confirmbigdel=false -ui text -sshargs '-i ~/.ssh/id_boot2docker' #{@dir_path}  socket://#{@docker_host_ip}:#{fileshare_port}/#{sync_to}", :in => pipe_cmd_in, :out => "/dev/null")
+      Process.spawn("xargs -n1 -I{} unison -silent -ignore 'Name {.git,*.swp}' -batch -confirmbigdel=false -ui text -sshargs '-i #{@ssh_file}' #{@dir_path}  socket://#{@docker_host_ip}:#{fileshare_port}/#{sync_to}", :in => pipe_cmd_in, :out => "/dev/null")
 
       Process.detach @fswatch_pid
 
@@ -183,8 +209,8 @@ class Hodor
 
     # Copying files to the VM
     puts "Synchronize #{@dir_path} with VM.."
-    `unison -ignore "Name {.git,*.swp}" -batch -confirmbigdel=false -ui text -sshargs '-i ~/.ssh/id_boot2docker' #{@dir_path} socket://#{@docker_host_ip}:#{fileshare_port}/#{sync_folder} 2>&1`
-    `ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/id_boot2docker docker@#{@docker_host_ip} "sudo chown -R docker /data/#{@dir_path}" 2>&1`
+    `unison -ignore "Name {.git,*.swp}" -batch -confirmbigdel=false -ui text -sshargs '-i #{@ssh_file}' #{@dir_path} socket://#{@docker_host_ip}:#{fileshare_port}/#{sync_folder} 2>&1`
+    `ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i #{@ssh_file} docker@#{@docker_host_ip} "sudo chown -R docker /data/#{@dir_path}" 2>&1`
 
   end
 
@@ -236,8 +262,8 @@ class Hodor
               @exposed_ports << port_parts[0]
 
               # Expose ports
-              `VBoxManage controlvm boot2docker-vm natpf1 "tcp-port#{port_parts[0]},tcp,,#{port_parts[0]},,#{port_parts[0]}"`
-              `VBoxManage controlvm boot2docker-vm natpf1 "udp-port#{port_parts[0]},udp,,#{port_parts[0]},,#{port_parts[0]}"`
+              `VBoxManage controlvm #{@host} natpf1 "tcp-port#{port_parts[0]},tcp,,#{port_parts[0]},,#{port_parts[0]}"`
+              `VBoxManage controlvm #{@host} natpf1 "udp-port#{port_parts[0]},udp,,#{port_parts[0]},,#{port_parts[0]}"`
             end
           end
         else
@@ -325,8 +351,8 @@ class Hodor
       # Cleanup exposed ports
       if @exposed_ports.any?
         @exposed_ports.each do |port_num|
-          `VBoxManage controlvm boot2docker-vm natpf1 delete tcp-port#{port_num}`
-          `VBoxManage controlvm boot2docker-vm natpf1 delete udp-port#{port_num}`
+          `VBoxManage controlvm #{@host} natpf1 delete tcp-port#{port_num}`
+          `VBoxManage controlvm #{@host} natpf1 delete udp-port#{port_num}`
         end
       end
 
