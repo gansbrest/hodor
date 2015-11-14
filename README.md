@@ -1,7 +1,7 @@
 hodor
 =====
 
-Small utility to streamline dev process with Docker and Boot2Docker VM ( Mac )
+Small utility to streamline dev process with Docker and Boot2Docker and Docker Machine ( Mac )
 
 Blog post with more info [http://distinctplace.com/infrastructure/2014/09/24/docker-vm-shortcomings-and-how-hodor-can-help/](http://distinctplace.com/infrastructure/2014/09/24/docker-vm-shortcomings-and-how-hodor-can-help/)
 
@@ -19,7 +19,7 @@ Hodor Hodor Hodor
 requirements
 =====
 * ruby >= 1.9.3
-* docker / boot2docker >= v1.1.2
+* docker / boot2docker >= v1.1.2 / docker-machine
 * unison >= 2.40.102 ( for two-way sync on Macs, not required for Linux ) [Get it here](https://code.google.com/p/rudix-mountainlion/downloads/detail?name=unison-2.40.102-0.pkg)
 * fswatch >= 1.4.3.1 ( for automatic volumes sync on project file change on Macs, not required for Linux ) `brew install fswatch`. Make sure you fswatch version has -o ( --one-per-batch option ). If it's missing you need newer version.
 
@@ -31,6 +31,9 @@ First you need to clone this repo, `chmod +x hodor` and copy hodor script to `/u
 In your project create file called `.hodorfile` (now processed through ERB) with following structure ( I'll explain options later, but everything should be pretty obvious from this example file:
 
 ````
+host-manager: docker-machine (Optional. Default: boot2docker)
+host: default (Optional. VirtualBox vm name. Defaults: boot2docker-vm (boot2docker), default (docker-machine))
+
 containers:
   redis:
     background: true
@@ -70,6 +73,7 @@ tasks:
     sync_project_to: /data/slot-fc1
     cmd: "cd /data/slot-fc1 && ./simple_server"
     container: "jetpack"
+  default: run (if no task is given, the run task is executed)
 ````
 
 Run Hodor with one of the tasks you specified while you are in project dir.
