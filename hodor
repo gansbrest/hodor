@@ -26,13 +26,6 @@ class Hodor
     @host = "boot2docker-vm"
     @ssh_file = "~/.ssh/id_boot2docker"
 
-    case conf['host-manager']
-      when "docker-machine"
-        @hostmanager = "docker-machine"
-        @host = conf['host'] || ENV['DOCKER_MACHINE_NAME'] || 'default'
-        @ssh_file = "~/.docker/machine/machines/#{@host}/id_rsa"
-    end
-
     # For non-linux envs
     @exposed_ports = []
 
@@ -56,6 +49,13 @@ class Hodor
     @tasks = conf['tasks']
     if !@op && @tasks['default']
       @op = @tasks['default']
+    end
+
+    case conf['host-manager']
+      when "docker-machine"
+        @hostmanager = "docker-machine"
+        @host = conf['host'] || ENV['DOCKER_MACHINE_NAME'] || 'default'
+        @ssh_file = "~/.docker/machine/machines/#{@host}/id_rsa"
     end
   end
 
