@@ -6,7 +6,6 @@ Small utility to streamline dev process with Docker and Boot2Docker and Docker M
 Blog posts with more info:
 
 * [http://distinctplace.com/infrastructure/2014/09/24/docker-vm-shortcomings-and-how-hodor-can-help/](http://distinctplace.com/infrastructure/2014/09/24/docker-vm-shortcomings-and-how-hodor-can-help/)
-
 * [http://distinctplace.com/infrastructure/2015/06/18/docker--hodor-to-simplify-app-setup/](Docker + Hodor for simple and reliable dev setup)
 
 features
