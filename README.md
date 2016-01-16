@@ -10,14 +10,21 @@ Blog posts with more info:
 
 features
 =====
-* same workflow for Linux and OS X (Windows not supported yet)
+* same workflow for Linux and OS X 
 * volume sharing support for current project dir (with unison and fswatch to keep host and VM in sync)
 * exposed docker ports are automatically mapped to your host, it just works (VirtualBox only)
 * ssh key sharing support between host and containers (ex: pull from github inside of the container without typing ssh key passwords)
 * containers orchestration with deps management, so we can start containers in particular order
-* separate containers list per project (with .hodorfile)
+* separate containers list per project (with `.hodorfile`)
 
 Hodor Hodor Hodor
+
+unsupported
+=====
+* Windows OS
+* `docker-compose` toolchain
+
+PRs, suggestions, and contributions are welcomed.
 
 requirements
 =====
