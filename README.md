@@ -1,7 +1,7 @@
 hodor
 =====
 
-Small utility to streamline dev process with Docker and Boot2Docker and Docker Machine (OS X)
+Small utility to streamline dev process with Docker on OS X (Boot2Docker/Docker Machine) and Linux
 
 Blog posts with more info:
 
