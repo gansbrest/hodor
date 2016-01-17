@@ -129,7 +129,7 @@ motivation
 
 Once I started working with Docker, my initial reaction was, "Hey, that's great, everything just works and I can even share my volumes and ports with host machine easily..." 
 
-I forgot to mention that I use Ubuntu as my desktop OS....  So I spent about a week to create multiple containers for our FastCompany stack (node, redis etc) and decided to convince our devs to integrate Docker as part of the new development process. Everything was supposed to be so much better. Boy, was I surprised.
+I forgot to mention that I use Ubuntu as my desktop OS... So I spent about a week to create multiple containers for our FastCompany stack (node, redis etc) and decided to convince our devs to integrate Docker as part of the new development process. Everything was supposed to be so much better. Boy, was I surprised.
 
 Most of our dev team members use Mac OS X. I always knew that. I think I was just misled by Docker docs, where they would say "It works everywhere, even on Windows! You just need this tiny VM to make it all happen." Well, let me make it short for you - Docker is PAIN in the b..t when you want to share volumes or ports, basically use it indirectly through any particular VM.
 
